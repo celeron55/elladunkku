@@ -48,7 +48,7 @@ OTHER
 
 ///////////////////////////////////////////////////////
 
-uint8_t font[] PROGMEM = {
+const uint8_t font[] PROGMEM = {
 	0x1c,0x22,0x22,0x1c, //0
 	0x00,0x02,0x3e,0x00, //1
 	0x32,0x2a,0x2a,0x24, //2
@@ -88,42 +88,17 @@ uint8_t font[] PROGMEM = {
 	0x00,0x32,0x2a,0x26, //Z*/
 };
 
+__attribute__((optimize(3)))
 void lcd_byte(uint8_t c, uint8_t data_command)
 {
 	if(data_command) LCD_DC_SET
 	else LCD_DC_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<7))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<6))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<5))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<4))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<3))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<2))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<1))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
-	LCD_SI_SET
-	if(!(c & (1<<0))) LCD_SI_CLEAR
-	LCD_SCLK_SET
-	LCD_SCLK_CLEAR
+	for(uint8_t i=0; i<8; i++){
+		LCD_SI_SET
+		if(!(c & (1<<(7-i)))) LCD_SI_CLEAR
+		LCD_SCLK_SET
+		LCD_SCLK_CLEAR
+	}
 }
 
 void lcd_locate(uint8_t x, uint8_t y)

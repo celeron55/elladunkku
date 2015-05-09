@@ -421,10 +421,13 @@ enum {
 	DRAGON,
 };
 
+volatile uint8_t g_counter0 = 0;
+
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
 uint8_t g_player_position = (0<<4) | (0<<0);
 uint8_t g_level = 1;
+uint8_t g_seed = 0;
 
 static inline uint8_t
 get_pos(uint8_t x, uint8_t y)
@@ -446,7 +449,7 @@ valid_rooms(const uint8_t rooms[2])
 }
 
 static inline void
-generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level)
+generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t *out_pos)
 {
    memset(tiles, 0, MAP_SIZE);
 
@@ -458,7 +461,8 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level)
 
    for (uint8_t t = 0; t < 2 + (level % 4); ++t) {
       uint8_t types = level / 8;
-      tiles[t] = 7 + ((hash & seed) | t) % ENEMY_TILES;
+      types = 1 + (types > ENEMY_TILES - 1 ? ENEMY_TILES - 1 : types);
+      tiles[t] = 7 + ((hash & seed) | t) % types;
    }
 
    const uint8_t rooms[2] = { 1 + (hash ^ seed) % (MAP_W - 2), 1 + ((hash | seed)) % (MAP_W - 2) };
@@ -472,19 +476,31 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level)
    const uint8_t g = (s == y ? s + 1 : y);
    tiles[g] = 3; // goal
    //tiles[s] = 16; // start
-   g_player_position = ((s/10)<<4) + (s%10);
+   *out_pos = s;
 }
 
-void init_game(void)
+static void draw_stats(void)
+{
+	lcd_locate(0,0);
+	lcd_put5digit(g_level);
+	lcd_put5digit(g_seed);
+}
+
+static void make_current_dungeon(void)
+{
+	uint8_t s;
+	generate_dungeon(g_map, g_seed, g_level, &s);
+	g_player_position = ((s/10)<<4) + (s%10);
+
+	draw_stats();
+}
+
+static void init_game(void)
 {
 	lcd_byte(0x08+4, 0);//Normal mode
 	lcd_cls();
 
-	lcd_locate(0,0);
-	lcd_put5digit(1337);
-
-	// TODO: Better seed
-	generate_dungeon(g_map, 2183, g_level);
+	make_current_dungeon();
 
 	/*for(uint8_t i=0; i<12; i++){
 		g_map[i] = i;
@@ -511,7 +527,14 @@ void init_game(void)
 	//g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
 }
 
-void draw_game(void)
+static void next_level(void)
+{
+	g_level++;
+	g_seed += g_counter0;
+	make_current_dungeon();
+}
+
+static void draw_game(void)
 {
 	uint8_t i=0;
 	for(uint8_t y=0; y<MAP_H; y++){
@@ -528,7 +551,8 @@ void draw_game(void)
 	}
 }
 
-static void move_player(int8_t key)
+// Returns true if move is valid
+static bool move_player(int8_t key)
 {
 	uint8_t y = g_player_position >> 4;
 	uint8_t x = g_player_position & 0x0f;
@@ -550,25 +574,40 @@ static void move_player(int8_t key)
 	}
 
 	if(y == 255 || x == 255 || y == MAP_H || x == MAP_W)
-		return; // Map boundaries
+		return false; // Map boundaries
+
+	uint8_t i = y*10 + x;
+	uint8_t t = g_map[i];
+
+	if(t == MOUNTAIN || t == TREE){
+		return false; // Can't walk on these tiles
+	}
+	if(t == SNAKE || t == GOBLIN || t == ELLA || t == DRAGON){
+		// TODO: Hit enemies
+		return true;
+	}
 
 	// Immediately erase player
 	lcd_locate8(g_player_position);
 	lcd_print_sprite(0);
-
 	g_player_position = (y<<4) | x;
 
 	// Immediately draw player
 	lcd_locate8(g_player_position);
 	lcd_print_sprite(11);
+
+	if(t == STAIRS){
+		next_level();
+		return true;
+	}
+
+	return true;
 }
 
-void step_game(int8_t key)
+static void step_game(int8_t key)
 {
 	move_player(key);
 }
-
-volatile uint8_t g_counter0 = 0;
 
 ISR(TIM0_COMPB_vect)
 {
@@ -659,20 +698,21 @@ start:
 	for(;;){
 
 		init_game();
+		draw_game();
 
 		//main loop
 		
 		g_counter0 = 0;
 		//TCNT0 = 0;
 		for(;;){
-			draw_game();
-
 			// TODO: If nothing happens for a long time, go to sleep
+
 			int8_t key = getkey();
 			if(key == DIR_NONE)
 				continue;
 
 			step_game(key);
+			draw_game();
 
 			/*int8_t lastdir_inv = -g_next_dir;
 			while(g_counter0 < 6){

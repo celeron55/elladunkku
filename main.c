@@ -155,7 +155,7 @@ const uint8_t sprites[] PROGMEM = {
 	0b00000100,
 	0b00000100,
 	0b00000000,
-	// 8
+	// 7
 	0b00001010,
 	0b00010100,
 	0b00101010,
@@ -164,7 +164,7 @@ const uint8_t sprites[] PROGMEM = {
 	0b10001000,
 	0b00100100,
 	0b00001010,
-	// 9
+	// 8
 	0b00010000,
 	0b00100001,
 	0b10101110,
@@ -173,7 +173,7 @@ const uint8_t sprites[] PROGMEM = {
 	0b00100001,
 	0b00010000,
 	0b00000000,
-	// 10
+	// 9
 	0b00000000,
 	0b10000000,
 	0b11111000,
@@ -182,7 +182,7 @@ const uint8_t sprites[] PROGMEM = {
 	0b10000000,
 	0b00000000,
 	0b00000000,
-	// 11
+	// 10
 	0b00000000,
 	0b00000110,
 	0b01000110,
@@ -190,6 +190,15 @@ const uint8_t sprites[] PROGMEM = {
 	0b10100100,
 	0b00011000,
 	0b00000000,
+	0b00000000,
+	// 11: player
+	0b01000000,
+	0b00100000,
+	0b10101100,
+	0b01111100,
+	0b10101100,
+	0b00100000,
+	0b01000000,
 	0b00000000,
 };
 
@@ -215,8 +224,8 @@ void lcd_locate(uint8_t x, uint8_t y)
 void lcd_locate8(uint8_t pos)
 {
 	lcd_byte(0x80+0x02+((pos&0x0f)<<3), 0);
-	lcd_byte(0x40+(pos>>4), 0);
-	//lcd_byte(0x40+0x01+(pos>>4), 0);
+	//lcd_byte(0x40+(pos>>4), 0);
+	lcd_byte(0x40+0x01+(pos>>4), 0);
 }
 
 void lcd_print_font(uint8_t start, uint8_t end)
@@ -393,6 +402,7 @@ int8_t getkey(void)
 #define MAP_SIZE (MAP_W*MAP_H)
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
+uint8_t g_player_position = (0<<4) | (0<<0);
 
 /*static inline void
 generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed)
@@ -440,6 +450,8 @@ void init_game(void)
 	}
 	g_map[14] = 8;
 	g_map[39] = 6;
+
+	g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
 }
 
 void draw_map(void)
@@ -448,8 +460,13 @@ void draw_map(void)
 	for(uint8_t y=0; y<MAP_H; y++){
 		lcd_locate(2, y+1);
 		for(uint8_t x=0; x<MAP_W; x++){
-			uint8_t t = g_map[i++];
-			lcd_print_sprite(t);
+			if(((y<<4) | x) == g_player_position){
+				lcd_print_sprite(11);
+			} else {
+				uint8_t t = g_map[i];
+				lcd_print_sprite(t);
+			}
+			i++;
 		}
 	}
 }

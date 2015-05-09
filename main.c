@@ -155,15 +155,6 @@ const uint8_t sprites[] PROGMEM = {
 	0b00000100,
 	0b00000100,
 	0b00000000,
-	// 7
-	0b00000000,
-	0b00000000,
-	0b00000000,
-	0b00000000,
-	0b00000000,
-	0b00000000,
-	0b00000000,
-	0b00000000,
 	// 8
 	0b00001010,
 	0b00010100,
@@ -399,8 +390,25 @@ int8_t getkey(void)
 
 #define MAP_W 10
 #define MAP_H 5
+#define MAP_SIZE (MAP_W*MAP_H)
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
+
+static inline void
+generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed)
+{
+   uint8_t hash = 0;
+   for (uint8_t t = 0; t < MAP_SIZE; ++t) {
+      tiles[t] = 1 + ((t & seed) ^ seed) % 5;
+      hash += ((hash << 5) + hash) + tiles[t];
+   }
+
+   const uint8_t s = hash & MAP_SIZE, y = ((hash << seed) & MAP_SIZE);
+   const uint8_t g = (s == y ? s + 1 : y);
+   tiles[g] = 6; // goal
+   //tiles[s] = 16; // start
+   tiles[s] = 0;
+}
 
 void init_game(void)
 {
@@ -410,14 +418,15 @@ void init_game(void)
 	lcd_locate(0,0);
 	lcd_put5digit(1337);
 
-	for(uint8_t i=0; i<12; i++){
+	/*for(uint8_t i=0; i<12; i++){
 		g_map[i] = i;
 		g_map[i+10] = i;
 	}
 	for(uint8_t i=0; i<=1; i++){
 		g_map[i+20] = i+10;
 		g_map[i+30] = i+10;
-	}
+	}*/
+	generate_dungeon(g_map, 2184);
 }
 
 void draw_map(void)

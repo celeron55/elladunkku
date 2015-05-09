@@ -472,17 +472,18 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t 
       tiles[get_pos(rooms[r], (hash ^ r) % MAP_H)] = 6;
    }
 
-   const uint8_t s = hash & MAP_SIZE, y = ((hash << seed) & MAP_SIZE);
-   const uint8_t g = (s == y ? s + 1 : y);
+   const uint8_t s = hash & MAP_SIZE, y = ((hash << seed) % MAP_SIZE);
+   const uint8_t g = (s != y ? y : (s >= MAP_SIZE ? 0 : s + 1));
+
    tiles[g] = 3; // goal
-   //tiles[s] = 16; // start
    *out_pos = s;
 }
 
 static void draw_stats(void)
 {
-	lcd_locate(0,0);
+	lcd_locate(0, 0);
 	lcd_put5digit(g_level);
+	lcd_locate(59, 0);
 	lcd_put5digit(g_seed);
 }
 
@@ -583,7 +584,8 @@ static bool move_player(int8_t key)
 		return false; // Can't walk on these tiles
 	}
 	if(t == SNAKE || t == GOBLIN || t == ELLA || t == DRAGON){
-		// TODO: Hit enemies
+		// TODO: Require hitting enemy mmore
+		g_map[i] = 0;
 		return true;
 	}
 

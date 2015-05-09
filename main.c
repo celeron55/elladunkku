@@ -593,8 +593,8 @@ static bool move_player(int8_t key)
 		return true;
 	}
 	if(t == BERRY){
-		if(g_hp < 255)
-			g_hp++;
+		if(g_hp < 254)
+			g_hp+=2;
 		g_map[i] = EMPTY;
 		return true;
 	}
@@ -621,7 +621,7 @@ static int8_t ai_action(int8_t current_i, uint8_t t)
 	else if(pdy > 1)
 		start_off = 3;
 	else if(pdy > -1){
-		g_hp--;
+		g_hp -= t - SNAKE + 1;
 		return current_i;
 	}
 	for(uint8_t i=start_off; i<start_off+4; i++){

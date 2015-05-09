@@ -193,7 +193,16 @@ const uint8_t sprites[] PROGMEM = {
 	0b10001000,
 	0b00100100,
 	0b00001010,
-	// 11: player
+	// 11
+	0b00000000,
+	0b00000000,
+	0b00100000,
+	0b00000100,
+	0b01000000,
+	0b00010000,
+	0b00000000,
+	0b00000000,
+	// 12: player
 	0b01000000,
 	0b00100000,
 	0b10101100,
@@ -223,12 +232,12 @@ void lcd_locate(uint8_t x, uint8_t y)
 	lcd_byte(0x40+y, 0);
 }
 
-void lcd_locate8(uint8_t pos)
+/*void lcd_locate8(uint8_t pos)
 {
 	lcd_byte(0x80+0x02+((pos&0x0f)<<3), 0);
 	//lcd_byte(0x40+(pos>>4), 0);
 	lcd_byte(0x40+0x01+(pos>>4), 0);
-}
+}*/
 
 void lcd_print_font(uint8_t start, uint8_t end)
 {
@@ -299,7 +308,7 @@ void lcd_put5digit(uint16_t i)
 	lcd_print('0'+j);
 	i -= 10*j;
 	lcd_print('0'+i);*/
-	lcd_print('0'+(i/10000));
+	//lcd_print('0'+(i/10000));
 	lcd_print('0'+((i/1000)%10));
 	lcd_print('0'+((i/100)%10));
 	lcd_print('0'+((i/10)%10));
@@ -419,36 +428,38 @@ enum {
 	GOBLIN, //8
 	ELLA,
 	DRAGON,
+	BERRY,
 };
 
 volatile uint8_t g_counter0 = 0;
 
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
-uint8_t g_player_position = (0<<4) | (0<<0);
+uint8_t g_player_position_i = 0;
 uint8_t g_level = 1;
 uint16_t g_seed = 0;
+uint8_t g_hp = 100;
 
-static inline uint8_t
+static uint8_t
 get_pos(uint8_t x, uint8_t y)
 {
    return (x + (MAP_W * y));
 }
 
-static inline void
+static void
 to_pos(uint8_t p, uint8_t *ox, uint8_t *oy)
 {
    *oy = p / MAP_W;
    *ox = p - (MAP_W * *oy);
 }
 
-static inline bool
+static bool
 valid_rooms(const uint8_t rooms[2])
 {
    return (rooms[0] + 1 != rooms[1] && rooms[0] - 1 != rooms[1] && rooms[0] != rooms[1]);
 }
 
-static inline void
+static void
 generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t *out_pos)
 {
    memset(tiles, 0, MAP_SIZE);
@@ -483,17 +494,15 @@ static void draw_stats(void)
 {
 	lcd_locate(0, 0);
 	lcd_put5digit(g_level);
+	lcd_locate(28, 0);
+	lcd_put5digit(g_hp);
 	lcd_locate(59, 0);
 	lcd_put5digit(g_seed);
 }
 
 static void make_current_dungeon(void)
 {
-	uint8_t s;
-	generate_dungeon(g_map, g_seed, g_level, &s);
-	g_player_position = ((s/10)<<4) + (s%10);
-
-	draw_stats();
+	generate_dungeon(g_map, g_seed, g_level, &g_player_position_i);
 }
 
 static void init_game(void)
@@ -502,30 +511,6 @@ static void init_game(void)
 	lcd_cls();
 
 	make_current_dungeon();
-
-	/*for(uint8_t i=0; i<12; i++){
-		g_map[i] = i;
-		g_map[i+10] = i;
-	}
-	for(uint8_t i=0; i<=1; i++){
-		g_map[i+20] = i+10;
-		g_map[i+30] = i+10;
-	}*/
-
-	/*for(uint16_t i=0; i<MAP_SIZE; i++){
-		if(i % 10 == 5){
-			if(i >= 20 && i < 30)
-				g_map[i] = 5;
-			else
-				g_map[i] = 3;
-		} else {
-			g_map[i] = 0;
-		}
-	}
-	g_map[14] = 8;
-	g_map[39] = 6;*/
-
-	//g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
 }
 
 static void next_level(void)
@@ -541,8 +526,8 @@ static void draw_game(void)
 	for(uint8_t y=0; y<MAP_H; y++){
 		lcd_locate(2, y+1);
 		for(uint8_t x=0; x<MAP_W; x++){
-			if(((y<<4) | x) == g_player_position){
-				lcd_print_sprite(11);
+			if(get_pos(x, y) == g_player_position_i){
+				lcd_print_sprite(12);
 			} else {
 				uint8_t t = g_map[i];
 				lcd_print_sprite(t);
@@ -550,57 +535,58 @@ static void draw_game(void)
 			i++;
 		}
 	}
+	draw_stats();
 }
 
 // Returns true if move is valid
 static bool move_player(int8_t key)
 {
-	uint8_t y = g_player_position >> 4;
-	uint8_t x = g_player_position & 0x0f;
+	uint8_t x, y;
+	to_pos(g_player_position_i, &x, &y);
+	uint8_t old_x = x;
+	uint8_t old_y = y;
 	switch(key){
 	case DIR_UP:
 		y--;
-		g_seed += 1;
 		break;
 	case DIR_DOWN:
 		y++;
-		g_seed += 5;
 		break;
 	case DIR_LEFT:
 		x--;
-		g_seed += 11;
 		break;
 	case DIR_RIGHT:
 		x++;
-		g_seed += 17;
 		break;
 	default:
-		return; //no move
+		return false; //no move
 	}
+	g_seed += (x<<4) + y;
 
 	if(y == 255 || x == 255 || y == MAP_H || x == MAP_W)
 		return false; // Map boundaries
 
-	uint8_t i = y*10 + x;
+	uint8_t i = get_pos(x, y);
 	uint8_t t = g_map[i];
 
 	if(t == MOUNTAIN || t == TREE){
 		return false; // Can't walk on these tiles
 	}
 	if(t == SNAKE || t == GOBLIN || t == ELLA || t == DRAGON){
-		// TODO: Require hitting enemy mmore
+		// TODO: Require hitting enemy more than once
 		g_map[i] = 0;
 		return true;
 	}
 
 	// Immediately erase player
-	lcd_locate8(g_player_position);
+	lcd_locate(2+old_x*8, old_y+1);
 	lcd_print_sprite(0);
-	g_player_position = (y<<4) | x;
-
+	
 	// Immediately draw player
-	lcd_locate8(g_player_position);
-	lcd_print_sprite(11);
+	lcd_locate(2+x*8, y+1);
+	lcd_print_sprite(12);
+
+	g_player_position_i = get_pos(x, y);
 
 	if(t == STAIRS){
 		next_level();
@@ -610,9 +596,64 @@ static bool move_player(int8_t key)
 	return true;
 }
 
+const int8_t possible_moves[] PROGMEM = {-10, -1, 1, 10};
+//const int8_t possible_moves[] = {-10, -1, 1, 10};
+
+// Returns new position, can have side effects
+static int8_t ai_action(int8_t current_i, uint8_t t)
+{
+	if(g_player_position_i == current_i + 1 ||
+			g_player_position_i == current_i - 1 ||
+			g_player_position_i == current_i + 10 ||
+			g_player_position_i == current_i - 10){
+		g_hp--;
+		return current_i;
+	}
+	// TODO: Move randomly
+	for(uint8_t i=0; i<4; i++){
+		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[i]));
+		//int8_t try_i = current_i + possible_moves[i];
+		if(try_i < 0 || try_i >= MAP_SIZE)
+			continue;
+		if(g_map[try_i] != 0)
+			continue;
+		return try_i;
+	}
+	return current_i;
+}
+
+static void step_enemies(void)
+{
+	uint8_t acted[4] = {255, 255, 255, 255};
+	uint8_t num_acted = 0;
+
+	for(int8_t i=0; i<MAP_SIZE; i++){
+		uint8_t t = g_map[i];
+		if(t != SNAKE && t != GOBLIN && t != ELLA && t != DRAGON)
+			continue;
+		for(uint8_t acted_i=0; acted_i<sizeof acted; acted_i++){
+			if(acted[acted_i] == i)
+				goto skip_act;
+		}
+		int8_t new_i = ai_action(i, t);
+		if(new_i != i){
+			uint8_t t2 = g_map[new_i];
+			g_map[new_i] = t;
+			g_map[i] = t2;
+		}
+		if(num_acted < sizeof acted)
+			acted[num_acted++] = new_i;
+skip_act:
+		continue;
+	}
+}
+
 static void step_game(int8_t key)
 {
-	move_player(key);
+	if(!move_player(key))
+		return;
+
+	step_enemies();
 }
 
 ISR(TIM0_COMPB_vect)

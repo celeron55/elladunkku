@@ -534,7 +534,7 @@ static void draw_game(void)
 }
 
 // Returns true if move is valid
-static bool move_player(int8_t key)
+static uint8_t move_player(int8_t key)
 {
 	uint8_t x, y;
 	to_pos(g_player_position_i, &x, &y);
@@ -573,19 +573,20 @@ static bool move_player(int8_t key)
 		return 1;
 	}
 
-	// Immediately erase player
+	// TODO: Enable this
+	/*// Immediately erase player
 	lcd_locate(2+old_x*8, old_y+1);
 	lcd_print_sprite(0);
 	
 	// Immediately draw player
 	lcd_locate(2+x*8, y+1);
-	lcd_print_sprite(12);
+	lcd_print_sprite(12);*/
 
 	g_player_position_i = get_pos(x, y);
 
 	if(t == STAIRS){
 		next_level(false);
-		return 1;
+		return 0;
 	}
 	if(t == BERRY){
 		if(g_hp < 254)
@@ -655,17 +656,6 @@ static void step_enemies(void)
 			acted[num_acted++] = new_i;
 skip_act:
 		continue;
-	}
-}
-
-static void step_game(int8_t key)
-{
-	uint8_t num_enemy_moves = move_player(key);
-	switch(num_enemy_moves){
-	case 2:
-		step_enemies();
-	case 1:
-		step_enemies();
 	}
 }
 
@@ -771,7 +761,14 @@ start:
 			if(key == DIR_NONE)
 				continue;
 
-			step_game(key);
+			uint8_t num_enemy_moves = move_player(key);
+			switch(num_enemy_moves){
+			case 2:
+				step_enemies();
+				draw_game();
+			case 1:
+				step_enemies();
+			}
 			draw_game();
 
 			if(g_hp <= 0){

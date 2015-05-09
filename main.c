@@ -394,7 +394,7 @@ int8_t getkey(void)
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
 
-static inline void
+/*static inline void
 generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed)
 {
    uint8_t hash = 0;
@@ -408,7 +408,7 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed)
    tiles[g] = 6; // goal
    //tiles[s] = 16; // start
    tiles[s] = 0;
-}
+}*/
 
 void init_game(void)
 {
@@ -426,7 +426,20 @@ void init_game(void)
 		g_map[i+20] = i+10;
 		g_map[i+30] = i+10;
 	}*/
-	generate_dungeon(g_map, 2184);
+	//generate_dungeon(g_map, 2184);
+
+	for(uint16_t i=0; i<MAP_SIZE; i++){
+		if(i % 10 == 5){
+			if(i >= 20 && i < 30)
+				g_map[i] = 5;
+			else
+				g_map[i] = 3;
+		} else {
+			g_map[i] = 0;
+		}
+	}
+	g_map[14] = 8;
+	g_map[39] = 6;
 }
 
 void draw_map(void)

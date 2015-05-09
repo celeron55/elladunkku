@@ -431,7 +431,7 @@ int8_t g_next_dir;
 uint8_t g_player_position_i = 0;
 uint8_t g_level = 1;
 uint16_t g_seed = 0;
-uint8_t g_hp = 100;
+int8_t g_hp = 20;
 
 static uint8_t
 get_pos(uint8_t x, uint8_t y)
@@ -452,12 +452,6 @@ valid_rooms(const uint8_t rooms[2])
    return (rooms[0] + 1 != rooms[1] && rooms[0] - 1 != rooms[1] && rooms[0] != rooms[1]);
 }
 
-static uint8_t
-get_random(uint8_t t)
-{
-   return ((t * 0x80) ^ 0xFF) >> 8;
-}
-
 static void
 generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t *out_pos)
 {
@@ -465,18 +459,18 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t 
 
    uint8_t hash = 0;
    for (uint8_t t = 0; t < MAP_SIZE; t += MAP_SIZE / 8) {
-      hash += ((hash << 5) + hash) + ((t & seed) ^ seed) % 16;
+      hash += ((hash << 5) + hash) + ((t & seed) ^ seed);
       tiles[t] = (hash ^ 8) % (STONE + 1);
    }
 
    for (uint8_t t = 0; t < 2 + (level % 4); ++t) {
       uint8_t types = level / 8;
       types = 1 + (types > DRAGON ? DRAGON : types);
-      const uint8_t rand = get_random(hash & seed + t ^ 0x80);
+      const uint8_t rand = ((hash ^ t) + (seed ^ t));
       tiles[rand % MAP_SIZE] = 7 + rand % types;
    }
 
-   tiles[get_random(seed + 32) % MAP_SIZE] = BERRY;
+   tiles[(hash * 32 + seed * 32) % MAP_SIZE] = BERRY;
 
    const uint8_t rooms[2] = { 1 + (hash ^ seed) % (MAP_W - 2), 1 + ((hash | seed)) % (MAP_W - 2) };
    for (uint8_t r = 0; r < 1 + valid_rooms(rooms); ++r) {
@@ -774,6 +768,10 @@ start:
 
 			step_game(key);
 			draw_game();
+
+			if(g_hp <= 0){
+				next_level(true); // Reset game
+			}
 
 			/*int8_t lastdir_inv = -g_next_dir;
 			while(g_counter0 < 6){

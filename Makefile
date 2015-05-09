@@ -123,7 +123,7 @@ LDFLAGS += -lm
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 #AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 
-AVRDUDE_FLAGS = -p $(MCU) $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -V -i15 -B100
+AVRDUDE_FLAGS = -p $(MCU) $(AVRDUDE_PORT) -c $(AVRDUDE_PROGRAMMER) -V -i15 -B50
 
 # Uncomment the following if you want avrdude's erase cycle counter.
 # Note that this counter needs to be initialized first using -Yn,

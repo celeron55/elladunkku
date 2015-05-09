@@ -49,6 +49,7 @@ OTHER
 ///////////////////////////////////////////////////////
 
 const uint8_t font[] PROGMEM = {
+	// 0
 	0x1c,0x22,0x22,0x1c, //0
 	0x00,0x02,0x3e,0x00, //1
 	0x32,0x2a,0x2a,0x24, //2
@@ -59,8 +60,10 @@ const uint8_t font[] PROGMEM = {
 	0x02,0x32,0x0a,0x06, //7
 	0x14,0x2a,0x2a,0x14, //8
 	0x04,0x2a,0x2a,0x1c, //9
-	0x22,0x14,0x1c,0x7f,0x1c,0x14,0x22,
-	/*0x3c,0x12,0x12,0x3c, //A 40
+	// 40
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+	0x22,0x14,0x1c,0x7f,0x1c,0x14,0x22,0x00,
+	/*0x3c,0x12,0x12,0x3c, //A
 	0x3e,0x2a,0x2a,0x14, //B
 	0x1c,0x22,0x22,0x00, //C
 	0x3e,0x22,0x22,0x1c, //D
@@ -86,6 +89,117 @@ const uint8_t font[] PROGMEM = {
 	0x36,0x08,0x08,0x36, //X
 	0x06,0x28,0x28,0x1e, //Y
 	0x00,0x32,0x2a,0x26, //Z*/
+};
+
+const uint8_t sprites[] PROGMEM = {
+	// 0
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	// 1
+	0b00000000,
+	0b01110000,
+	0b10001100,
+	0b00001010,
+	0b00010010,
+	0b10000100,
+	0b01111000,
+	0b00000000,
+	// 2
+	0b00000000,
+	0b10010000,
+	0b11110100,
+	0b11111110,
+	0b11110100,
+	0b10010000,
+	0b00000000,
+	0b00000000,
+	// 3
+	0b00001000,
+	0b01000100,
+	0b00100010,
+	0b00010100,
+	0b00001000,
+	0b00000100,
+	0b00001000,
+	0b00010000,
+	// 4
+	0b00000000,
+	0b00000000,
+	0b01100000,
+	0b10010000,
+	0b10010000,
+	0b01100000,
+	0b00000000,
+	0b00000000,
+	// 5
+	0b00000000,
+	0b00111100,
+	0b00100010,
+	0b11111010,
+	0b01000110,
+	0b00111100,
+	0b00000000,
+	0b00000000,
+	// 6
+	0b11000000,
+	0b01000000,
+	0b01110000,
+	0b00010000,
+	0b00011100,
+	0b00000100,
+	0b00000100,
+	0b00000000,
+	// 7
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	0b00000000,
+	// 8
+	0b00001010,
+	0b00010100,
+	0b00101010,
+	0b10110011,
+	0b01111110,
+	0b10001000,
+	0b00100100,
+	0b00001010,
+	// 9
+	0b00010000,
+	0b00100001,
+	0b10101110,
+	0b01111100,
+	0b10101110,
+	0b00100001,
+	0b00010000,
+	0b00000000,
+	// 10
+	0b00000000,
+	0b10000000,
+	0b11111000,
+	0b10000100,
+	0b11111000,
+	0b10000000,
+	0b00000000,
+	0b00000000,
+	// 11
+	0b00000000,
+	0b00000110,
+	0b01000110,
+	0b10100100,
+	0b10100100,
+	0b00011000,
+	0b00000000,
+	0b00000000,
 };
 
 __attribute__((optimize(3)))
@@ -119,6 +233,14 @@ void lcd_print_font(uint8_t start, uint8_t end)
 	uint8_t i;
 	for(i=start; i<end; i++){
 		lcd_byte(pgm_read_byte(&(font[i])), 1);
+	}
+}
+
+void lcd_print_sprite(uint8_t sprite)
+{
+	uint8_t i;
+	for(i=(sprite<<3); i<(sprite<<3)+8; i++){
+		lcd_byte(pgm_read_byte(&(sprites[i])), 1);
 	}
 }
 
@@ -273,219 +395,41 @@ int8_t getkey(void)
 	return DIR_NONE;
 }
 
-#define SNAKE_MAXLEN (5*10)
-#define SNAKE_STARTLEN 4
+/* =============== GAME STUFF ============== */
 
-//uint8_t g_highscore;
-uint16_t g_highscore;
-//4 MSB's = y, 4 LSB's = x
-uint8_t g_snake[SNAKE_MAXLEN];
-uint8_t g_snake_start;
-uint8_t g_snake_end;
-int8_t g_snake_dir;
-uint8_t g_point_pos;
-//uint8_t g_points;
-uint16_t g_points;
-uint8_t g_free_pos_count;
-uint16_t g_random;
-uint8_t g_day;
+#define MAP_W 10
+#define MAP_H 5
+uint8_t g_map[MAP_W*MAP_H];
+int8_t g_next_dir;
 
-void point_newplace(void);
-void draw_block(uint8_t pos, uint8_t b);
-void snake_draw(uint8_t b);
-void points_draw(void);
-
-void initsnake(void)
+void init_game(void)
 {
 	lcd_byte(0x08+4, 0);//Normal mode
-	g_day = 1;
-	uint8_t i;
-	for(i=0; i<SNAKE_STARTLEN; i++){
-		g_snake[i] = ((2)<<4)+(0+i);
-	}
-	g_snake_start = 0;
-	g_snake_end = 0 + SNAKE_STARTLEN - 1;
-	g_snake_dir = DIR_RIGHT;
-	//g_free_pos_count = 1;
-	g_free_pos_count = 5*10-SNAKE_STARTLEN;
 	lcd_cls();
-	for(i=0; i<6; i++){
-		lcd_locate(83,i);
-		lcd_byte(0xff, 1);
-		lcd_byte(0xff, 1);
-	}
-	point_newplace();
-	snake_draw(0xff);
+
 	lcd_locate(0,0);
-	lcd_put5digit(g_highscore);
-	lcd_locate(29,0);
-	lcd_put5digit(g_points);
-	g_points = 0;
-	points_draw();
-}
+	lcd_put5digit(1337);
 
-uint8_t random(void)
-{
-	g_random = ((g_random * 9384)^0x2736);
-	return (uint8_t)(g_random>>8);
-}
-
-void points_draw(void)
-{
-	//lcd_locate8((0<<4)+8);
-	//lcd_locate(69,0);
-	//lcd_put3digit(g_points);
-	lcd_locate(59,0);
-	lcd_put5digit(g_points);
-}
-
-enum {POS_EMPTY, POS_DIE, POS_POINT};
-
-uint8_t snake_posinfo(uint8_t pos)
-{
-	if(g_point_pos != 0xff){
-		if(pos == g_point_pos) return POS_POINT;
+	for(uint8_t i=0; i<12; i++){
+		g_map[i] = i;
+		g_map[i+10] = i;
 	}
-	uint8_t i = g_snake_start;
-	if(g_snake_end < g_snake_start){
-		for(; i < SNAKE_MAXLEN; i++){
-			if(g_snake[i] == pos) return POS_DIE;
+	for(uint8_t i=0; i<=1; i++){
+		g_map[i+20] = i+10;
+		g_map[i+30] = i+10;
+	}
+}
+
+void draw_map(void)
+{
+	uint8_t i=0;
+	for(uint8_t y=0; y<MAP_H; y++){
+		lcd_locate(2, y+1);
+		for(uint8_t x=0; x<MAP_W; x++){
+			uint8_t t = g_map[i++];
+			lcd_print_sprite(t);
 		}
-		i = 0;
 	}
-	for(; i <= g_snake_end; i++){
-		if(g_snake[i] == pos) return POS_DIE;
-	}
-	return POS_EMPTY;
-}
-
-void point_newplace(void)
-{
-	uint8_t x=0;
-	uint8_t y=1;
-	uint8_t i = 0;
-	uint8_t c = random()%g_free_pos_count;
-	for(;;){
-		if(snake_posinfo((y<<4)+x) == POS_EMPTY){
-			if(i == c){
-				g_point_pos = (y<<4)+x;
-				break;
-			}
-			//if(i == 10*5) return;
-			i++;
-		}
-		x++;
-		if(x>=10){ y++; x=0; }
-		if(y>=6) y = 1;
-	}
-	lcd_locate8(g_point_pos);
-	lcd_print_font(40, 40+7);
-	/*lcd_byte(0x22, 1);
-	lcd_byte(0x14, 1);
-	lcd_byte(0x1c, 1);
-	lcd_byte(0x7f, 1);
-	lcd_byte(0x1c, 1);
-	lcd_byte(0x14, 1);
-	lcd_byte(0x22, 1);*/
-}
-
-void draw_block(uint8_t pos, uint8_t b)
-{
-	lcd_locate8(pos);
-	uint8_t i;
-	for(i=0; i<8; i++) lcd_byte(b, 1);
-}
-
-void snake_draw(uint8_t b)
-{
-	uint8_t i = g_snake_start;
-	if(g_snake_end < g_snake_start){
-		for(; i < SNAKE_MAXLEN; i++){
-			draw_block(g_snake[i], b);
-		}
-		i = 0;
-	}
-	for(; i <= g_snake_end; i++){
-		draw_block(g_snake[i], b);
-	}
-}
-
-//returns 1 if dead
-uint8_t snake_move_and_draw(void)
-{
-	static uint8_t dying = 0;
-	uint8_t y = g_snake[g_snake_end] >> 4;
-	uint8_t x = g_snake[g_snake_end] & 0x0f;
-	uint8_t info = POS_EMPTY;
-	switch(g_snake_dir){
-	case DIR_UP:
-		if(y == 1) info = POS_DIE;
-		y--;
-		break;
-	case DIR_DOWN:
-		if(y == 5) info = POS_DIE;
-		y++;
-		break;
-	case DIR_LEFT:
-		if(x == 0) info = POS_DIE;
-		x--;
-		break;
-	case DIR_RIGHT:
-		if(x == 9) info = POS_DIE;
-		x++;
-		break;
-	default:
-		return 0; //no move
-	}
-	uint8_t pos_new = (y<<4) + x;
-	if(info == POS_EMPTY)
-		info = snake_posinfo(pos_new);
-	if(info == POS_DIE){
-		if(dying == 0){
-			dying = 1;
-			return 0;
-		}
-		return 1;
-	}
-
-	dying = 0;
-
-	draw_block(pos_new, 0xff);
-
-	if(info == POS_POINT){
-		g_points++;
-		points_draw();
-	}
-
-	g_snake_end += 1;
-	if(g_snake_end == SNAKE_MAXLEN) g_snake_end = 0;
-
-	if(info != POS_POINT){
-		draw_block(g_snake[g_snake_start], 0x00);
-		g_snake_start++;
-		if(g_snake_start == SNAKE_MAXLEN) g_snake_start = 0;
-	}
-	else g_free_pos_count--;
-
-	g_snake[g_snake_end] = pos_new;
-	
-	if(g_free_pos_count == 0){
-		snake_draw(0x00);
-		g_snake_start = g_snake_end;
-		g_free_pos_count = 10*5-1;
-		snake_draw(0xff);
-		g_snake_dir = DIR_NONE;
-		g_day = !g_day;
-		if(g_day) lcd_byte(0x08+4, 0);//Normal mode
-		else      lcd_byte(0x08+5, 0);//Inverse mode
-	}
-
-	if(info == POS_POINT){
-		point_newplace(); //has to be done after extending snake's head to current position
-	}
-	//lcd_locate(83,5);
-	lcd_locate8((0<<4)+4);
-	return 0;
 }
 
 volatile uint8_t g_counter0 = 0;
@@ -560,10 +504,10 @@ int main(void)
 
 	//wdt_enable(WDTO_4S);
 
-	//g_highscore = eeprom_read_byte(0);
-	//if(g_highscore == 255) g_highscore = 0;
-	g_highscore = eeprom_read_word(0);
-	if(g_highscore == 0xffff) g_highscore = 0;
+	/*g_highscore = eeprom_read_byte(0);
+	if(g_highscore == 0xff) g_highscore = 0;*/
+	/*g_highscore = eeprom_read_word(0);
+	if(g_highscore == 0xffff) g_highscore = 0;*/
 
 start:
 	
@@ -578,20 +522,22 @@ start:
 
 	for(;;){
 
-		initsnake();
+		init_game();
 
 		//main loop
 		
 		g_counter0 = 0;
 		//TCNT0 = 0;
 		for(;;){
-			int8_t lastdir_inv = -g_snake_dir;
+			draw_map();
+
+			/*int8_t lastdir_inv = -g_next_dir;
 			while(g_counter0 < 6){
 			//while(TCNT0 < 6*3){
 				int8_t key = getkey();
 				if(key == DIR_NONE) continue;
 				if(key == lastdir_inv) continue;
-				g_snake_dir = key;
+				g_next_dir = key;
 				g_random += g_counter0;
 			}
 			TCNT0 = 0;
@@ -609,7 +555,7 @@ start:
 				}
 				_delay_ms(200);
 				break;
-			}
+			}*/
 		}
 		
 		while(getkey() != DIR_NONE);

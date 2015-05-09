@@ -427,7 +427,7 @@ uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
 uint8_t g_player_position = (0<<4) | (0<<0);
 uint8_t g_level = 1;
-uint8_t g_seed = 0;
+uint16_t g_seed = 0;
 
 static inline uint8_t
 get_pos(uint8_t x, uint8_t y)
@@ -560,15 +560,19 @@ static bool move_player(int8_t key)
 	switch(key){
 	case DIR_UP:
 		y--;
+		g_seed += 1;
 		break;
 	case DIR_DOWN:
 		y++;
+		g_seed += 5;
 		break;
 	case DIR_LEFT:
 		x--;
+		g_seed += 11;
 		break;
 	case DIR_RIGHT:
 		x++;
+		g_seed += 17;
 		break;
 	default:
 		return; //no move

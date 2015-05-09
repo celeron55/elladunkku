@@ -514,18 +514,16 @@ static void make_current_dungeon(void)
 	generate_dungeon(g_map, g_seed, g_level, &g_player_position_i);
 }
 
-static void init_game(void)
+static void next_level(bool init_game)
 {
-	lcd_byte(0x08+4, 0);//Normal mode
-	lcd_cls();
-
-	make_current_dungeon();
-}
-
-static void next_level(void)
-{
-	g_level++;
-	g_seed += g_counter0;
+	if(init_game){
+		g_level = 1;
+		lcd_byte(0x08+4, 0);//Normal mode
+		lcd_cls();
+	} else {
+		g_level++;
+		g_seed += g_counter0;
+	}
 	make_current_dungeon();
 }
 
@@ -598,7 +596,7 @@ static bool move_player(int8_t key)
 	g_player_position_i = get_pos(x, y);
 
 	if(t == STAIRS){
-		next_level();
+		next_level(false);
 		return true;
 	}
 	if(t == BERRY){
@@ -759,7 +757,7 @@ start:
 
 	for(;;){
 
-		init_game();
+		next_level(true);
 		draw_game();
 
 		//main loop

@@ -209,7 +209,7 @@ const uint8_t font[] PROGMEM = {
 };
 
 __attribute__((optimize(3)))
-void lcd_byte(uint8_t c, uint8_t data_command)
+static void lcd_byte(uint8_t c, uint8_t data_command)
 {
 	if(data_command) LCD_DC_SET
 	else LCD_DC_CLEAR
@@ -221,20 +221,20 @@ void lcd_byte(uint8_t c, uint8_t data_command)
 	}
 }
 
-void lcd_locate(uint8_t x, uint8_t y)
+static void lcd_locate(uint8_t x, uint8_t y)
 {
 	lcd_byte(0x80+x, 0);
 	lcd_byte(0x40+y, 0);
 }
 
-/*void lcd_locate8(uint8_t pos)
+/*static void lcd_locate8(uint8_t pos)
 {
 	lcd_byte(0x80+0x02+((pos&0x0f)<<3), 0);
 	//lcd_byte(0x40+(pos>>4), 0);
 	lcd_byte(0x40+0x01+(pos>>4), 0);
 }*/
 
-void lcd_print_font(uint8_t start, uint8_t end)
+static void lcd_print_font(uint8_t start, uint8_t end)
 {
 	uint8_t i;
 	for(i=start; i<end; i++){
@@ -242,13 +242,13 @@ void lcd_print_font(uint8_t start, uint8_t end)
 	}
 }
 
-void lcd_print_sprite(uint8_t sprite)
+static void lcd_print_sprite(uint8_t sprite)
 {
 	uint8_t sprite8 = sprite<<3;
 	lcd_print_font(40 + sprite8, 48 + sprite8);
 }
 
-void lcd_print(uint8_t c)
+static void lcd_print(uint8_t c)
 {
 	/*if(c==' '){
 		for(c=0; c<5; c++) lcd_byte(0x00, 1);
@@ -265,19 +265,19 @@ void lcd_print(uint8_t c)
 	}*/
 }
 
-/*void lcd_printstrP(PGM_P c)
+/*static void lcd_printstrP(PGM_P c)
 {
 	while(pgm_read_byte(c)){ lcd_print((uint8_t)pgm_read_byte(c)); c++; }
 }*/
 
-/*void lcd_put3digit(uint8_t i)
+/*static void lcd_put3digit(uint8_t i)
 {
 	lcd_print('0'+(i/100));
 	lcd_print('0'+((i/10)%10));
 	lcd_print('0'+(i%10));
 }*/
 
-void lcd_put5digit(uint16_t i)
+static void lcd_put5digit(uint16_t i)
 {
 	/*uint16_t j;
 	uint16_t c=10000;
@@ -308,7 +308,7 @@ void lcd_put5digit(uint16_t i)
 	lcd_print('0'+(i%10));
 }
 
-void lcd_cls(void)
+static void lcd_cls(void)
 {
 	/*uint8_t c;
 	for(c=0;c<6;c++){
@@ -322,7 +322,7 @@ void lcd_cls(void)
 	}
 }
 
-void lcd_init(void)
+static void lcd_init(void)
 {
 	LCD_RESET_CLEAR
 	//_delay_ms(10);
@@ -338,7 +338,7 @@ void lcd_init(void)
 	//lcd_cls();
 }
 
-void lcd_powerdown(void)
+static void lcd_powerdown(void)
 {
 	lcd_byte(0x21, 0);//Horizontal addressing, extended instruction set
 	lcd_byte(0x80+0, 0);//LCD Vop 0
@@ -347,7 +347,7 @@ void lcd_powerdown(void)
 
 ////////////////////////////////////////////////////////
 
-uint8_t read_adc(void)
+static uint8_t read_adc(void)
 {
 	//   (Vcc) left-adj.
 	ADMUX = (1<<ADLAR) | 3;
@@ -603,36 +603,37 @@ static bool move_player(int8_t key)
 }
 
 const int8_t possible_moves[] PROGMEM = {-10, -1, 1, 10};
-//const int8_t possible_moves[] = {-10, -1, 1, 10};
 
 // Returns new position, can have side effects
 static int8_t ai_action(int8_t current_i, uint8_t t)
 {
-	/*// TODO: Move randomly
-	for(uint8_t i=0; i<4; i++){
-		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[i]));
-		//int8_t try_i = current_i + possible_moves[i];
-		if(try_i < 0 || try_i >= MAP_SIZE)
-			continue;
-		if(g_map[try_i] != EMPTY)
-			continue;
-		return try_i;
-	}*/
-	/*uint8_t current_x, current_y;
+	int8_t current_x, current_y;
 	to_pos(current_i, &current_x, &current_y);
 	int8_t player_x, player_y;
 	to_pos(g_player_position_i, &player_x, &player_y);
 	int8_t pdx = player_x - current_x;
 	int8_t pdy = player_y - current_y;
-	if(pdx == 1 && pdy == 1){
+	uint8_t start_off = 0;
+	if(pdx < -1)
+		start_off = 1;
+	else if(pdx > 1)
+		start_off = 2;
+	else if(pdy > 1)
+		start_off = 3;
+	else if(pdy > -1){
 		g_hp--;
 		return current_i;
 	}
-	if(pdx < 0){
-		if(current_x > 0)
-			return current_i - 1;
+	for(uint8_t i=start_off; i<start_off+4; i++){
+		uint8_t actual_i = i % 4;
+		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[actual_i]));
+		if(try_i < 0 || try_i >= MAP_SIZE)
+			continue;
+		if(g_map[try_i] != EMPTY)
+			continue;
+		return try_i;
 	}
-	return current_i;*/
+	return current_i;
 }
 
 static void step_enemies(void)

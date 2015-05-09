@@ -431,7 +431,7 @@ int8_t g_next_dir;
 uint8_t g_player_position_i = 0;
 uint8_t g_level = 1;
 uint16_t g_seed = 0;
-int8_t g_hp = 20;
+int8_t g_hp;
 
 static uint8_t
 get_pos(uint8_t x, uint8_t y)
@@ -492,8 +492,8 @@ static void draw_stats(void)
 	lcd_put5digit(g_level);
 	lcd_locate(28, 0);
 	lcd_put5digit(g_hp);
-	lcd_locate(59, 0);
-	lcd_put5digit(g_seed);
+	/*lcd_locate(59, 0);
+	lcd_put5digit(g_seed);*/
 }
 
 static void make_current_dungeon(void)
@@ -505,6 +505,7 @@ static void next_level(bool init_game)
 {
 	if(init_game){
 		g_level = 1;
+		g_hp = 20;
 		lcd_byte(0x08+4, 0);//Normal mode
 		lcd_cls();
 	} else {
@@ -553,23 +554,23 @@ static bool move_player(int8_t key)
 		x++;
 		break;
 	default:
-		return false; //no move
+		return 0; //no move
 	}
 	g_seed += (x<<4) + y;
 
 	if(y == 255 || x == 255 || y == MAP_H || x == MAP_W)
-		return false; // Map boundaries
+		return 0; // Map boundaries
 
 	uint8_t i = get_pos(x, y);
 	uint8_t t = g_map[i];
 
 	if(t == MOUNTAIN || t == TREE){
-		return false; // Can't walk on these tiles
+		return 0; // Can't walk on these tiles
 	}
 	if(t == SNAKE || t == GOBLIN || t == ELLA || t == DRAGON){
 		// TODO: Require hitting enemy more than once
 		g_map[i] = 0;
-		return true;
+		return 1;
 	}
 
 	// Immediately erase player
@@ -584,16 +585,17 @@ static bool move_player(int8_t key)
 
 	if(t == STAIRS){
 		next_level(false);
-		return true;
+		return 1;
 	}
 	if(t == BERRY){
 		if(g_hp < 254)
 			g_hp+=2;
 		g_map[i] = EMPTY;
-		return true;
+		return 1;
 	}
-
-	return true;
+	if(t == STONE || t == BUSH)
+		return 2;
+	return 1;
 }
 
 const int8_t possible_moves[] PROGMEM = {-10, -1, 1, 10};
@@ -658,10 +660,13 @@ skip_act:
 
 static void step_game(int8_t key)
 {
-	if(!move_player(key))
-		return;
-
-	step_enemies();
+	uint8_t num_enemy_moves = move_player(key);
+	switch(num_enemy_moves){
+	case 2:
+		step_enemies();
+	case 1:
+		step_enemies();
+	}
 }
 
 ISR(TIM0_COMPB_vect)
@@ -770,7 +775,10 @@ start:
 			draw_game();
 
 			if(g_hp <= 0){
+				_delay_ms(5000);
+				while(getkey() == DIR_NONE);
 				next_level(true); // Reset game
+				draw_game();
 			}
 
 			/*int8_t lastdir_inv = -g_next_dir;

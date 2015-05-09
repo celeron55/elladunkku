@@ -7,6 +7,8 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/eeprom.h>
+#include <stdbool.h>
+#include <string.h>
 
 /*
 
@@ -112,41 +114,14 @@ const uint8_t sprites[] PROGMEM = {
 	0b00000000,
 	// 2
 	0b00000000,
+	0b00000000,
+	0b01100000,
 	0b10010000,
-	0b11110100,
-	0b11111110,
-	0b11110100,
 	0b10010000,
+	0b01100000,
 	0b00000000,
 	0b00000000,
 	// 3
-	0b00001000,
-	0b01000100,
-	0b00100010,
-	0b00010100,
-	0b00001000,
-	0b00000100,
-	0b00001000,
-	0b00010000,
-	// 4
-	0b00000000,
-	0b00000000,
-	0b01100000,
-	0b10010000,
-	0b10010000,
-	0b01100000,
-	0b00000000,
-	0b00000000,
-	// 5
-	0b00000000,
-	0b00111100,
-	0b00100010,
-	0b11111010,
-	0b01000110,
-	0b00111100,
-	0b00000000,
-	0b00000000,
-	// 6
 	0b11000000,
 	0b01000000,
 	0b01110000,
@@ -155,15 +130,42 @@ const uint8_t sprites[] PROGMEM = {
 	0b00000100,
 	0b00000100,
 	0b00000000,
-	// 7
-	0b00001010,
+	// 4
+	0b00000000,
+	0b10010000,
+	0b11110100,
+	0b11111110,
+	0b11110100,
+	0b10010000,
+	0b00000000,
+	0b00000000,
+	// 5
+	0b00001000,
+	0b01000100,
+	0b00100010,
 	0b00010100,
-	0b00101010,
-	0b10110011,
-	0b01111110,
-	0b10001000,
-	0b00100100,
-	0b00001010,
+	0b00001000,
+	0b00000100,
+	0b00001000,
+	0b00010000,
+	// 6
+	0b00000000,
+	0b00111100,
+	0b00100010,
+	0b11111010,
+	0b01000110,
+	0b00111100,
+	0b00000000,
+	0b00000000,
+	// 7
+	0b00000000,
+	0b00000110,
+	0b01000110,
+	0b10100100,
+	0b10100100,
+	0b00011000,
+	0b00000000,
+	0b00000000,
 	// 8
 	0b00010000,
 	0b00100001,
@@ -183,14 +185,14 @@ const uint8_t sprites[] PROGMEM = {
 	0b00000000,
 	0b00000000,
 	// 10
-	0b00000000,
-	0b00000110,
-	0b01000110,
-	0b10100100,
-	0b10100100,
-	0b00011000,
-	0b00000000,
-	0b00000000,
+	0b00001010,
+	0b00010100,
+	0b00101010,
+	0b10110011,
+	0b01111110,
+	0b10001000,
+	0b00100100,
+	0b00001010,
 	// 11: player
 	0b01000000,
 	0b00100000,
@@ -401,25 +403,77 @@ int8_t getkey(void)
 #define MAP_W 10
 #define MAP_H 5
 #define MAP_SIZE (MAP_W*MAP_H)
+#define MAX_TILES 16
+#define GROUND_TILES 3
+#define ENEMY_TILES 4
+
+enum {
+	EMPTY,
+	BUSH,
+	STONE,
+	STAIRS,
+	TREE, //4
+	MOUNTAIN,
+	DOOR,
+	SNAKE,
+	GOBLIN, //8
+	ELLA,
+	DRAGON,
+};
+
 uint8_t g_map[MAP_W*MAP_H];
 int8_t g_next_dir;
 uint8_t g_player_position = (0<<4) | (0<<0);
+uint8_t g_level = 1;
 
-/*static inline void
-generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed)
+static inline uint8_t
+get_pos(uint8_t x, uint8_t y)
 {
+   return (x + (MAP_W * y));
+}
+
+static inline void
+to_pos(uint8_t p, uint8_t *ox, uint8_t *oy)
+{
+   *oy = p / MAP_W;
+   *ox = p - (MAP_W * *oy);
+}
+
+static inline bool
+valid_rooms(const uint8_t rooms[2])
+{
+   return (rooms[0] + 1 != rooms[1] && rooms[0] - 1 != rooms[1] && rooms[0] != rooms[1]);
+}
+
+static inline void
+generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level)
+{
+   memset(tiles, 0, MAP_SIZE);
+
    uint8_t hash = 0;
-   for (uint8_t t = 0; t < MAP_SIZE; ++t) {
-      tiles[t] = 1 + ((t & seed) ^ seed) % 5;
-      hash += ((hash << 5) + hash) + tiles[t];
+   for (uint8_t t = 0; t < MAP_SIZE; t += MAP_SIZE / 8) {
+      hash += ((hash << 5) + hash) + ((t & seed) ^ seed) % 16;
+      tiles[t] = (hash ^ 8) % GROUND_TILES;
+   }
+
+   for (uint8_t t = 0; t < 2 + (level % 4); ++t) {
+      uint8_t types = level / 8;
+      tiles[t] = 7 + ((hash & seed) | t) % ENEMY_TILES;
+   }
+
+   const uint8_t rooms[2] = { 1 + (hash ^ seed) % (MAP_W - 2), 1 + ((hash | seed)) % (MAP_W - 2) };
+   for (uint8_t r = 0; r < 1 + valid_rooms(rooms); ++r) {
+      for (uint8_t y = 0; y < MAP_H; ++y)
+         tiles[get_pos(rooms[r], y)] = (((hash ^ r) % MAP_W) > r ? 4 : 5);
+      tiles[get_pos(rooms[r], (hash ^ r) % MAP_H)] = 6;
    }
 
    const uint8_t s = hash & MAP_SIZE, y = ((hash << seed) & MAP_SIZE);
    const uint8_t g = (s == y ? s + 1 : y);
-   tiles[g] = 6; // goal
+   tiles[g] = 3; // goal
    //tiles[s] = 16; // start
-   tiles[s] = 0;
-}*/
+   g_player_position = ((s/10)<<4) + (s%10);
+}
 
 void init_game(void)
 {
@@ -429,6 +483,9 @@ void init_game(void)
 	lcd_locate(0,0);
 	lcd_put5digit(1337);
 
+	// TODO: Better seed
+	generate_dungeon(g_map, 2183, g_level);
+
 	/*for(uint8_t i=0; i<12; i++){
 		g_map[i] = i;
 		g_map[i+10] = i;
@@ -437,9 +494,8 @@ void init_game(void)
 		g_map[i+20] = i+10;
 		g_map[i+30] = i+10;
 	}*/
-	//generate_dungeon(g_map, 2184);
 
-	for(uint16_t i=0; i<MAP_SIZE; i++){
+	/*for(uint16_t i=0; i<MAP_SIZE; i++){
 		if(i % 10 == 5){
 			if(i >= 20 && i < 30)
 				g_map[i] = 5;
@@ -450,9 +506,9 @@ void init_game(void)
 		}
 	}
 	g_map[14] = 8;
-	g_map[39] = 6;
+	g_map[39] = 6;*/
 
-	g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
+	//g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
 }
 
 void draw_game(void)

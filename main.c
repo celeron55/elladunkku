@@ -459,6 +459,12 @@ valid_rooms(const uint8_t rooms[2])
    return (rooms[0] + 1 != rooms[1] && rooms[0] - 1 != rooms[1] && rooms[0] != rooms[1]);
 }
 
+static uint8_t
+get_random(uint8_t t)
+{
+   return ((t * 0x80) ^ 0xFF) >> 8;
+}
+
 static void
 generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t *out_pos)
 {
@@ -467,26 +473,29 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t 
    uint8_t hash = 0;
    for (uint8_t t = 0; t < MAP_SIZE; t += MAP_SIZE / 8) {
       hash += ((hash << 5) + hash) + ((t & seed) ^ seed) % 16;
-      tiles[t] = (hash ^ 8) % GROUND_TILES;
+      tiles[t] = (hash ^ 8) % (STONE + 1);
    }
 
    for (uint8_t t = 0; t < 2 + (level % 4); ++t) {
       uint8_t types = level / 8;
-      types = 1 + (types > ENEMY_TILES - 1 ? ENEMY_TILES - 1 : types);
-      tiles[t] = 7 + ((hash & seed) | t) % types;
+      types = 1 + (types > DRAGON ? DRAGON : types);
+      const uint8_t rand = get_random(hash & seed + t ^ 0x80);
+      tiles[rand % MAP_SIZE] = 7 + rand % types;
    }
+
+   tiles[get_random(seed + 32) % MAP_SIZE] = BERRY;
 
    const uint8_t rooms[2] = { 1 + (hash ^ seed) % (MAP_W - 2), 1 + ((hash | seed)) % (MAP_W - 2) };
    for (uint8_t r = 0; r < 1 + valid_rooms(rooms); ++r) {
       for (uint8_t y = 0; y < MAP_H; ++y)
-         tiles[get_pos(rooms[r], y)] = (((hash ^ r) % MAP_W) > r ? 4 : 5);
-      tiles[get_pos(rooms[r], (hash ^ r) % MAP_H)] = 6;
+         tiles[get_pos(rooms[r], y)] = (((hash ^ r) % MAP_W) > r ? TREE : MOUNTAIN);
+      tiles[get_pos(rooms[r], (hash ^ r) % MAP_H)] = DOOR;
    }
 
-   const uint8_t s = (hash & MAP_SIZE) % MAP_SIZE, y = ((hash << seed) % MAP_SIZE);
+   const uint8_t s = hash % MAP_SIZE, y = ((hash & seed) % MAP_SIZE);
    const uint8_t g = (s != y ? y : (s >= MAP_SIZE ? 0 : s + 1));
 
-   tiles[g] = 3; // goal
+   tiles[g] = STAIRS;
    *out_pos = s;
 }
 
@@ -592,6 +601,12 @@ static bool move_player(int8_t key)
 		next_level();
 		return true;
 	}
+	if(t == BERRY){
+		if(g_hp < 255)
+			g_hp++;
+		g_map[i] = EMPTY;
+		return true;
+	}
 
 	return true;
 }
@@ -609,16 +624,16 @@ static int8_t ai_action(int8_t current_i, uint8_t t)
 		g_hp--;
 		return current_i;
 	}
-	// TODO: Move randomly
+	/*// TODO: Move randomly
 	for(uint8_t i=0; i<4; i++){
 		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[i]));
 		//int8_t try_i = current_i + possible_moves[i];
 		if(try_i < 0 || try_i >= MAP_SIZE)
 			continue;
-		if(g_map[try_i] != 0)
+		if(g_map[try_i] != EMPTY)
 			continue;
 		return try_i;
-	}
+	}*/
 	return current_i;
 }
 

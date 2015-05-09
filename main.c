@@ -590,7 +590,7 @@ static uint8_t move_player(int8_t key)
 	}
 	if(t == BERRY){
 		if(g_hp < 254)
-			g_hp+=2;
+			g_hp+=5;
 		g_map[i] = EMPTY;
 		return 1;
 	}

@@ -472,7 +472,7 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t 
       tiles[get_pos(rooms[r], (hash ^ r) % MAP_H)] = 6;
    }
 
-   const uint8_t s = hash & MAP_SIZE, y = ((hash << seed) % MAP_SIZE);
+   const uint8_t s = (hash & MAP_SIZE) % MAP_SIZE, y = ((hash << seed) % MAP_SIZE);
    const uint8_t g = (s != y ? y : (s >= MAP_SIZE ? 0 : s + 1));
 
    tiles[g] = 3; // goal

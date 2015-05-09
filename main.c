@@ -384,6 +384,7 @@ int8_t getkey(void)
 		_delay_ms(1);
 		uint8_t adcv2;
 		adcv2 = read_adc();
+		//if(adcv2 >= adcv - 2 || adcv2 <= adcv + 2) break;
 		//if(adcv2 >= adcv - 1 || adcv2 <= adcv + 1) break;
 		if(adcv2 == adcv) break;
 	}
@@ -454,7 +455,7 @@ void init_game(void)
 	g_player_position = (2<<4) | (1<<0); // y<<4, x<<0
 }
 
-void draw_map(void)
+void draw_game(void)
 {
 	uint8_t i=0;
 	for(uint8_t y=0; y<MAP_H; y++){
@@ -469,6 +470,46 @@ void draw_map(void)
 			i++;
 		}
 	}
+}
+
+static void move_player(int8_t key)
+{
+	uint8_t y = g_player_position >> 4;
+	uint8_t x = g_player_position & 0x0f;
+	switch(key){
+	case DIR_UP:
+		y--;
+		break;
+	case DIR_DOWN:
+		y++;
+		break;
+	case DIR_LEFT:
+		x--;
+		break;
+	case DIR_RIGHT:
+		x++;
+		break;
+	default:
+		return; //no move
+	}
+
+	if(y == 255 || x == 255 || y == MAP_H || x == MAP_W)
+		return; // Map boundaries
+
+	// Immediately erase player
+	lcd_locate8(g_player_position);
+	lcd_print_sprite(0);
+
+	g_player_position = (y<<4) | x;
+
+	// Immediately draw player
+	lcd_locate8(g_player_position);
+	lcd_print_sprite(11);
+}
+
+void step_game(int8_t key)
+{
+	move_player(key);
 }
 
 volatile uint8_t g_counter0 = 0;
@@ -568,7 +609,14 @@ start:
 		g_counter0 = 0;
 		//TCNT0 = 0;
 		for(;;){
-			draw_map();
+			draw_game();
+
+			// TODO: If nothing happens for a long time, go to sleep
+			int8_t key = getkey();
+			if(key == DIR_NONE)
+				continue;
+
+			step_game(key);
 
 			/*int8_t lastdir_inv = -g_next_dir;
 			while(g_counter0 < 6){

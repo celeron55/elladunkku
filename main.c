@@ -17,6 +17,8 @@
 # include <avr/wdt.h>
 # include <avr/sleep.h>
 # include <avr/eeprom.h>
+# include <stdbool.h>
+# include <string.h>
 #else
 # define _DEFAULT_SOURCE
 # include <stdbool.h>

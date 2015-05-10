@@ -1,14 +1,35 @@
+/**
+ * elladunkku
+ * Use makefile for avr
+ *
+ * For SDL simulation:
+ * gcc main.c -std=c99 -Os -DSDL -lSDL -o elladunkku
+ */
+
 //#define F_CPU 1000000L
 #define F_CPU 128000L
-#include <avr/interrupt.h>
-#include <util/delay.h>
-#include <avr/io.h>
-#include <avr/pgmspace.h>
-#include <avr/wdt.h>
-#include <avr/sleep.h>
-#include <avr/eeprom.h>
-#include <stdbool.h>
-#include <string.h>
+
+#if !SDL
+# include <avr/interrupt.h>
+# include <util/delay.h>
+# include <avr/io.h>
+# include <avr/pgmspace.h>
+# include <avr/wdt.h>
+# include <avr/sleep.h>
+# include <avr/eeprom.h>
+#else
+# define _DEFAULT_SOURCE
+# include <stdbool.h>
+# include <string.h>
+# include <stdint.h>
+# include <unistd.h>
+# include <SDL/SDL.h>
+# define PROGMEM
+# define pgm_read_byte(x) *x
+# define sei()
+# define _delay_ms(x) SDL_Delay(x)
+static SDL_Surface *screen;
+#endif
 
 /*
 
@@ -211,6 +232,7 @@ const uint8_t font[] PROGMEM = {
 __attribute__((optimize(3)))
 static void lcd_byte(uint8_t c, uint8_t data_command)
 {
+#if !SDL
 	if(data_command) LCD_DC_SET
 	else LCD_DC_CLEAR
 	for(uint8_t i=0; i<8; i++){
@@ -219,6 +241,25 @@ static void lcd_byte(uint8_t c, uint8_t data_command)
 		LCD_SCLK_SET
 		LCD_SCLK_CLEAR
 	}
+#else
+	static uint8_t x = 0, y = 0;
+	if (data_command == 0) {
+		if (c >= 0x80)
+			x = (c - 0x80) % 80;
+		else if (c >= 0x40)
+			y = ((c - 0x40) * 8) % 48;
+	} else if (data_command == 1) {
+		for (uint8_t i = 0; i < 8; ++i) {
+			if (!(c & (1 << i)))
+				continue;
+
+			uint32_t c = SDL_MapRGB(screen->format, 0, 0, 0);
+			uint32_t *p32 = (uint32_t*)screen->pixels + ((y + i) * 80) + x;
+			*p32 = c;
+		}
+		x = (x + 1) % 80;
+	}
+#endif
 }
 
 static void lcd_locate(uint8_t x, uint8_t y)
@@ -324,6 +365,7 @@ static void lcd_cls(void)
 
 static void lcd_init(void)
 {
+#if !SDL
 	LCD_RESET_CLEAR
 	//_delay_ms(10);
 	LCD_RESET_SET
@@ -336,6 +378,7 @@ static void lcd_init(void)
 	lcd_byte(0x20, 0);//Horizontal addressing, basic instruction set
 	//lcd_byte(0x08+4, 0);//Normal mode
 	//lcd_cls();
+#endif
 }
 
 static void lcd_powerdown(void)
@@ -346,6 +389,16 @@ static void lcd_powerdown(void)
 }
 
 ////////////////////////////////////////////////////////
+
+enum{
+	DIR_NONE = 0,
+	DIR_UP = -1,
+	DIR_DOWN = 1,
+	DIR_LEFT = -2,
+	DIR_RIGHT = 2
+};
+
+#if !SDL
 
 static uint8_t read_adc(void)
 {
@@ -364,14 +417,6 @@ static uint8_t read_adc(void)
 	ADCSRA |= (1<<ADIF); //clear flag
 	return c;
 }
-
-enum{
-	DIR_NONE = 0, 
-	DIR_UP = -1, 
-	DIR_DOWN = 1,
-	DIR_LEFT = -2, 
-	DIR_RIGHT = 2
-};
 
 int8_t getkey(void)
 {
@@ -399,6 +444,28 @@ int8_t getkey(void)
 	if(adcv > (uint8_t)(256.0*(2.011-0.2)/3.035) && adcv < (uint8_t)(256.0*(2.011+0.2)/3.035)) return DIR_DOWN;
 	return DIR_NONE;
 }
+
+#else
+
+SDL_Event g_event;
+
+int8_t getkey(void)
+{
+	switch(g_event.type){
+		case SDL_KEYDOWN:
+			switch(g_event.key.keysym.sym) {
+				case SDLK_LEFT: return DIR_LEFT;
+				case SDLK_RIGHT: return DIR_RIGHT;
+				case SDLK_UP: return DIR_UP;
+				case SDLK_DOWN: return DIR_DOWN;
+				default:break;
+			}
+		default:break;
+	}
+	return DIR_NONE;
+}
+
+#endif
 
 /* =============== GAME STUFF ============== */
 
@@ -517,6 +584,15 @@ static void next_level(bool init_game)
 
 static void draw_game(void)
 {
+#if SDL
+	SDL_Rect r;
+	r.x = r.y = 0;
+	r.w = screen->w;
+	r.h = screen->h;
+	uint32_t c = SDL_MapRGB(screen->format, 128, 255, 128);
+	SDL_FillRect(screen, &r, c);
+#endif
+
 	uint8_t i=0;
 	for(uint8_t y=0; y<MAP_H; y++){
 		lcd_locate(2, y+1);
@@ -531,6 +607,10 @@ static void draw_game(void)
 		}
 	}
 	draw_stats();
+
+#if SDL
+	SDL_Flip(screen);
+#endif
 }
 
 // Returns true if move is valid
@@ -659,11 +739,13 @@ skip_act:
 	}
 }
 
+#if !SDL
 ISR(TIM0_COMPB_vect)
 {
 	TCNT0 = 0;
 	g_counter0++;
 }
+#endif
 
 //uint8_t mcusr_mirror __attribute__ ((section (".noinit")));
 
@@ -679,6 +761,7 @@ void get_mcusr(void)
 
 int main(void)
 {
+#if !SDL
 	//wdt_enable(WDTO_1S);
 
 	// I/O ports
@@ -729,13 +812,23 @@ int main(void)
 
 	//wdt_enable(WDTO_4S);
 
+#else
+
+	SDL_Init(SDL_INIT_VIDEO);
+	if (!(screen = SDL_SetVideoMode(80, 48, 32, SDL_SWSURFACE)))
+		return EXIT_FAILURE;
+
+	SDL_WM_SetCaption("elladunkku", NULL);
+
+#endif
+
 	/*g_highscore = eeprom_read_byte(0);
 	if(g_highscore == 0xff) g_highscore = 0;*/
 	/*g_highscore = eeprom_read_word(0);
 	if(g_highscore == 0xffff) g_highscore = 0;*/
 
 start:
-	
+
 	lcd_init();
 
 	//lcd_locate(10,2);
@@ -751,10 +844,17 @@ start:
 		draw_game();
 
 		//main loop
-		
+
 		g_counter0 = 0;
 		//TCNT0 = 0;
 		for(;;){
+#if SDL
+			++g_counter0;
+			SDL_WaitEvent(&g_event);
+			if (g_event.type == SDL_QUIT)
+				goto quit;
+#endif
+
 			// TODO: If nothing happens for a long time, go to sleep
 
 			int8_t key = getkey();
@@ -804,14 +904,15 @@ start:
 				break;
 			}*/
 		}
-		
+
+#if !SDL
 		while(getkey() != DIR_NONE);
 		//TCNT0 = 0;
 		g_counter0 = 0;
 		while(getkey() == DIR_NONE){
 			if(g_counter0 >= 200){
 				cli();
-				
+
 				/*lcd_cls();
 				lcd_locate8((1<<4)+0);
 				lcd_printstrP(PSTR("GREETINGS  ELLA  TEJEEZ  3210"));
@@ -848,8 +949,13 @@ start:
 				goto start;
 			}
 		}
+#endif
 	}
 
+#if SDL
+quit:
+	SDL_Quit();
+#endif
 	return 0;
 }
 

@@ -151,6 +151,15 @@ const uint8_t font[] PROGMEM = {
 	0b00000000,
 	// 7
 	0b00000000,
+	0b00000000,
+	0b00100000,
+	0b00000100,
+	0b01000000,
+	0b00010000,
+	0b00000000,
+	0b00000000,
+	// 8
+	0b00000000,
 	0b00000110,
 	0b01000110,
 	0b10100100,
@@ -158,7 +167,7 @@ const uint8_t font[] PROGMEM = {
 	0b00011000,
 	0b00000000,
 	0b00000000,
-	// 8
+	// 9
 	0b00010000,
 	0b00100001,
 	0b10101110,
@@ -167,7 +176,7 @@ const uint8_t font[] PROGMEM = {
 	0b00100001,
 	0b00010000,
 	0b00000000,
-	// 9
+	// 10
 	0b00000000,
 	0b10000000,
 	0b11111000,
@@ -176,7 +185,7 @@ const uint8_t font[] PROGMEM = {
 	0b10000000,
 	0b00000000,
 	0b00000000,
-	// 10
+	// 11
 	0b00001010,
 	0b00010100,
 	0b00101010,
@@ -185,15 +194,6 @@ const uint8_t font[] PROGMEM = {
 	0b10001000,
 	0b00100100,
 	0b00001010,
-	// 11
-	0b00000000,
-	0b00000000,
-	0b00100000,
-	0b00000100,
-	0b01000000,
-	0b00010000,
-	0b00000000,
-	0b00000000,
 	// 12: player
 	0b01000000,
 	0b00100000,
@@ -486,11 +486,11 @@ enum {
 	TREE, //4
 	MOUNTAIN,
 	DOOR,
-	SNAKE,
-	GOBLIN, //8
+	BERRY,
+	SNAKE, // 8
+	GOBLIN,
 	ELLA,
 	DRAGON,
-	BERRY,
 };
 
 volatile uint8_t g_counter0 = 0;
@@ -564,6 +564,8 @@ static void draw_stats(void)
 	lcd_put5digit(g_seed);*/
 }
 
+static void draw_game(void);
+
 static void make_current_dungeon(void)
 {
 	generate_dungeon(g_map, g_seed, g_level, &g_player_position_i);
@@ -581,6 +583,7 @@ static void next_level(bool init_game)
 		g_seed += g_counter0;
 	}
 	make_current_dungeon();
+	draw_game();
 }
 
 static void draw_game(void)
@@ -648,7 +651,7 @@ static uint8_t move_player(int8_t key)
 	if(t == MOUNTAIN || t == TREE){
 		return 0; // Can't walk on these tiles
 	}
-	if(t == SNAKE || t == GOBLIN || t == ELLA || t == DRAGON){
+	if(t >= SNAKE){
 		// TODO: Require hitting enemy more than once
 		g_map[i] = 0;
 		return 1;
@@ -720,7 +723,7 @@ static void step_enemies(void)
 
 	for(int8_t i=0; i<MAP_SIZE; i++){
 		uint8_t t = g_map[i];
-		if(t != SNAKE && t != GOBLIN && t != ELLA && t != DRAGON)
+		if(t < SNAKE)
 			continue;
 		for(uint8_t acted_i=0; acted_i<sizeof acted; acted_i++){
 			if(acted[acted_i] == i)
@@ -841,7 +844,6 @@ start:
 	for(;;){
 
 		next_level(true);
-		draw_game();
 
 		//main loop
 
@@ -862,20 +864,15 @@ start:
 				continue;
 
 			uint8_t num_enemy_moves = move_player(key);
-			switch(num_enemy_moves){
-			case 2:
+			for(uint8_t i=0; i<num_enemy_moves; i++){
 				step_enemies();
 				draw_game();
-			case 1:
-				step_enemies();
 			}
-			draw_game();
 
 			if(g_hp <= 0){
 				_delay_ms(5000);
 				while(getkey() == DIR_NONE);
 				next_level(true); // Reset game
-				draw_game();
 			}
 
 			/*int8_t lastdir_inv = -g_next_dir;

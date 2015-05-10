@@ -686,7 +686,7 @@ static uint8_t move_player(int8_t key)
 	return 1;
 }
 
-const int8_t possible_moves[] PROGMEM = {-1, 1, 10, -10};
+const int8_t possible_moves[] PROGMEM = {-10, -1, 1, 10, -10, -1, 1};
 
 // Returns new position, can have side effects
 static int8_t ai_action(int8_t current_i, uint8_t t)
@@ -700,20 +700,20 @@ static int8_t ai_action(int8_t current_i, uint8_t t)
 	to_pos(current_i, &current_x, &current_y);
 	uint8_t player_x, player_y;
 	to_pos(g_player_position_i, &player_x, &player_y);
+	//int8_t pdx = player_x - current_x; // Unused
 	int8_t pdy = player_y - current_y;
 
-	uint8_t start_off = 0;
-	if(pdy == 0){ // Player is at same row
-		if(d > 0) // Player is at right
-			start_off = 1;
-	} else if(pdy > 0){ // Player is downward from here
-		start_off = 2;
-	} else if(pdy < 0){ // Player is upward from here
+	uint8_t start_off = 1;
+	if(pdy > 0){ // Player is downward from here
 		start_off = 3;
+	} else if(pdy < 0){ // Player is upward from here
+		start_off = 0;
+	} else { // Player is at same row
+		if(d > 0) // Player is at right
+			start_off = 2;
 	}
 	for(uint8_t i=start_off; i<start_off+4; i++){
-		uint8_t actual_i = i % 4;
-		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[actual_i]));
+		int8_t try_i = current_i + pgm_read_byte(&(possible_moves[i]));
 		if(try_i < 0 || try_i >= MAP_SIZE || try_i == g_player_position_i)
 			continue;
 		if(g_map[try_i] != EMPTY)

@@ -532,14 +532,13 @@ generate_dungeon(uint8_t tiles[MAP_SIZE], uint16_t seed, uint8_t level, uint8_t 
       tiles[t] = (hash ^ 8) % (STONE + 1);
    }
 
-   for (uint8_t t = 0; t < 2 + (level % 4); ++t) {
-      uint8_t types = level / 8;
-      types = 1 + (types > DRAGON ? DRAGON : types);
-      const uint8_t rand = ((hash ^ t) + (seed ^ t));
-      tiles[rand % MAP_SIZE] = 7 + rand % types;
+   for (uint8_t t = 0; t < 2 + (level < 32 ? level % 4 : level / 4); ++t) {
+      const uint8_t types = 1 + (level / 8 > 3 ? 3 : level / 8);
+      const uint8_t rand = ((hash ^ t) + (seed ^ level));
+      tiles[rand % MAP_SIZE] = SNAKE + (rand % types);
    }
 
-   tiles[(hash * 32 + seed * 32) % MAP_SIZE] = BERRY;
+   tiles[(hash + seed) % MAP_SIZE] = BERRY;
 
    const uint8_t rooms[2] = { 1 + (hash ^ seed) % (MAP_W - 2), 1 + ((hash | seed)) % (MAP_W - 2) };
    for (uint8_t r = 0; r < 1 + valid_rooms(rooms); ++r) {

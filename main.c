@@ -619,8 +619,8 @@ static uint8_t move_player(int8_t key)
 {
 	uint8_t x, y;
 	to_pos(g_player_position_i, &x, &y);
-	uint8_t old_x = x;
-	uint8_t old_y = y;
+	/*uint8_t old_x = x;
+	uint8_t old_y = y;*/
 	switch(key){
 	case DIR_UP:
 		y--;
@@ -685,9 +685,9 @@ const int8_t possible_moves[] PROGMEM = {-10, -1, 1, 10};
 // Returns new position, can have side effects
 static int8_t ai_action(int8_t current_i, uint8_t t)
 {
-	int8_t current_x, current_y;
+	uint8_t current_x, current_y;
 	to_pos(current_i, &current_x, &current_y);
-	int8_t player_x, player_y;
+	uint8_t player_x, player_y;
 	to_pos(g_player_position_i, &player_x, &player_y);
 	int8_t pdx = player_x - current_x;
 	int8_t pdy = player_y - current_y;

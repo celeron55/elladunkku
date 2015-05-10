@@ -870,7 +870,8 @@ start:
 			}
 
 			if(g_hp <= 0){
-				_delay_ms(5000);
+				lcd_byte(0x08+5, 0); // Inverse mode
+				_delay_ms(2000);
 				while(getkey() == DIR_NONE);
 				next_level(true); // Reset game
 			}
